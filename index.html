@@ -728,11 +728,16 @@ document.getElementById('ab').addEventListener('click',async()=>{
 document.getElementById('ap').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('ab').click();});
 lb.addEventListener('click',async()=>{
   if(!confirm('Logout?'))return;
+  if(rtChannel){
+    await sb.removeChannel(rtChannel);
+    rtChannel = null;
+  }
   await sb.auth.signOut();location.reload();
 });
 
 /* ============ REALTIME ============ */
 let rt;
+let rtChannel = null;
 function schedRT(){
   clearTimeout(rt);
   rt=setTimeout(async()=>{
@@ -742,7 +747,12 @@ function schedRT(){
   },800);
 }
 function setupRT(){
-  sb.channel('kasir-db').on('postgres_changes',{event:'*',schema:'public',table:'products'},schedRT)
+  if(rtChannel){
+    sb.removeChannel(rtChannel);
+    rtChannel = null;
+  }
+  rtChannel = sb.channel('kasir-db')
+    .on('postgres_changes',{event:'*',schema:'public',table:'products'},schedRT)
     .on('postgres_changes',{event:'*',schema:'public',table:'categories'},schedRT)
     .on('postgres_changes',{event:'*',schema:'public',table:'transactions'},schedRT)
     .on('postgres_changes',{event:'*',schema:'public',table:'stock_movements'},schedRT)
@@ -762,8 +772,17 @@ async function boot(){
   }catch(e){hl();console.error(e);tst(fe(e),1);}
 }
 sb.auth.onAuthStateChange((ev,sess)=>{
-  if(sess){showApp();if(!window.__ready)boot();}
-  else{window.__ready=false;showLogin();}
+  if(sess){
+    showApp();
+    if(!window.__ready)boot();
+  } else {
+    window.__ready=false;
+    if(rtChannel){
+      sb.removeChannel(rtChannel);
+      rtChannel = null;
+    }
+    showLogin();
+  }
 });
 sb.auth.getSession().then(({data})=>{if(!data||!data.session)showLogin();});
 </script>
